@@ -39,7 +39,7 @@ class _HomePageState extends State<HomePage> {
             child: Container(
               decoration: BoxDecoration(
                 image: DecorationImage(
-                  image: AssetImage('assets/hocklogo.jpg'), // your image
+                  image: AssetImage('../assets/hocklogo.jpg'), // your image
                   fit: BoxFit.cover,
                 ),
               ),
@@ -53,11 +53,11 @@ class _HomePageState extends State<HomePage> {
               children: [
                 // Title
                 Text(
-                  'HOKINDA Attendance App',
+                  'HOKINDA Attendance Apping',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black54,
+                    color: Colors.black,
                     shadows: [
                       Shadow(
                         blurRadius: 4,

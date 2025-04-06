@@ -1,0 +1,27 @@
+git add . --to add everything in the folder
+git add filename1 filename2 --to add specific file
+git commit -m "Initial commit"
+git branch -M main
+git push -u origin main
+
+git init
+git remote add origin https://github.com/BorisMario1994/attendance_app.git
+
+git remote -v --to check if the GitHub work
+
+git clone https://github.com/BorisMario1994/attendance_app.git
+git pull origin main --to get the latest update
+git status Check What’s Changed (Optional but useful)
+
+git checkout -b feature/my-new-feature --to not push directly to branch
+git add .
+git commit -m "Add new feature"
+git push origin feature/my-new-feature
+
+
+
+flutter create attendance_app
+cd attendance_app
+flutter run -d chrome
+
+flutter run -d chrome
