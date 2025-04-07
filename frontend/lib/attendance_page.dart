@@ -19,13 +19,11 @@ class _AttendancePageState extends State<AttendancePage> {
   String? errorMessage;
   DateTime? serverTime;
   Timer? _timer;
-  String? lastStatus;
 
   @override
   void initState() {
     super.initState();
     _fetchServerTime();
-    _checkLastStatus();
     // Update time every second
     _timer = Timer.periodic(Duration(seconds: 1), (timer) {
       if (serverTime != null) {
@@ -40,23 +38,6 @@ class _AttendancePageState extends State<AttendancePage> {
   void dispose() {
     _timer?.cancel();
     super.dispose();
-  }
-
-  Future<void> _checkLastStatus() async {
-    try {
-      final response = await http.get(
-        Uri.parse('http://localhost:5000/api/attendance/last-status/${widget.employeeId}'),
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        setState(() {
-          lastStatus = data['data']?['status'];
-        });
-      }
-    } catch (e) {
-      print('Error checking last status: $e');
-    }
   }
 
   Future<void> _fetchServerTime() async {
@@ -120,23 +101,22 @@ class _AttendancePageState extends State<AttendancePage> {
       );
 
       if (response.statusCode == 201) {
+        final data = jsonDecode(response.body);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Successfully ${status == 'clock-in' ? 'clocked in' : 'clocked out'}'),
+            content: Text('Successfully ${status == 'clock-in' ? 'clocked in' : 'clocked out'} at ${data['data']['location']}'),
             backgroundColor: Colors.green,
           ),
         );
-        // Update last status after successful recording
-        setState(() {
-          lastStatus = status;
-        });
       } else {
         final data = jsonDecode(response.body);
+        print('Error response: $data');
         setState(() {
-          errorMessage = data['message'] ?? 'An error occurred';
+          errorMessage = data['message'] ?? data['error'] ?? 'An error occurred';
         });
       }
     } catch (e) {
+      print('Error in _recordAttendance: $e');
       setState(() {
         errorMessage = 'Error: ${e.toString()}';
       });
@@ -149,9 +129,6 @@ class _AttendancePageState extends State<AttendancePage> {
 
   @override
   Widget build(BuildContext context) {
-    bool canClockIn = lastStatus == null || lastStatus == 'clock-out';
-    bool canClockOut = lastStatus == 'clock-in';
-
     return Scaffold(
       body: Stack(
         children: [
@@ -266,7 +243,7 @@ class _AttendancePageState extends State<AttendancePage> {
                     ),
 
                   ElevatedButton(
-                    onPressed: (isLoading || !canClockIn) ? null : () => _recordAttendance('clock-in'),
+                    onPressed: isLoading ? null : () => _recordAttendance('clock-in'),
                     style: ElevatedButton.styleFrom(
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -291,7 +268,7 @@ class _AttendancePageState extends State<AttendancePage> {
                   ),
                   SizedBox(height: 16),
                   ElevatedButton(
-                    onPressed: (isLoading || !canClockOut) ? null : () => _recordAttendance('clock-out'),
+                    onPressed: isLoading ? null : () => _recordAttendance('clock-out'),
                     style: ElevatedButton.styleFrom(
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),

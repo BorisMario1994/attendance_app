@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { sql } = require('../config/db');
+const { isLocationAllowed } = require('../utils/geofencing');
 
 // Get server time
 router.get('/server-time', async (req, res) => {
@@ -45,12 +46,15 @@ router.get('/last-status/:employeeId', async (req, res) => {
 // Record attendance (clock-in or clock-out)
 router.post('/record', async (req, res) => {
     try {
+        console.log("Received request:", req.body);
         const { employeeId, status, latitude, longitude } = req.body;
 
         // Check if employee exists
         const employeeResult = await sql.query`
             SELECT * FROM employee_app WHERE employeeId = ${employeeId}
         `;
+        
+        console.log("Employee check result:", employeeResult.recordset);
         
         if (employeeResult.recordset.length === 0) {
             return res.status(404).json({
@@ -59,41 +63,15 @@ router.post('/record', async (req, res) => {
             });
         }
 
-        // For clock-in, check if already clocked in today
-        if (status === 'clock-in') {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            
-            const existingClockIn = await sql.query`
-                SELECT * FROM attendance_app 
-                WHERE employeeId = ${employeeId} 
-                AND status = 'clock-in'
-                AND CAST(clockTime AS DATE) = CAST(GETDATE() AS DATE)
-            `;
-
-            if (existingClockIn.recordset.length > 0) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Already clocked in today'
-                });
-            }
-        }
-
-        // For clock-out, check if already clocked out today
-        if (status === 'clock-out') {
-            const existingClockOut = await sql.query`
-                SELECT * FROM attendance_app 
-                WHERE employeeId = ${employeeId} 
-                AND status = 'clock-out'
-                AND CAST(clockTime AS DATE) = CAST(GETDATE() AS DATE)
-            `;
-
-            if (existingClockOut.recordset.length > 0) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Already clocked out today'
-                });
-            }
+        // Check if location is allowed
+        const locationCheck = await isLocationAllowed(latitude, longitude);
+        console.log("Location check result:", locationCheck);
+        
+        if (!locationCheck.isAllowed) {
+            return res.status(400).json({
+                success: false,
+                message: locationCheck.message
+            });
         }
 
         // Insert attendance record
@@ -102,6 +80,8 @@ router.post('/record', async (req, res) => {
             VALUES (${employeeId}, ${status}, ${latitude}, ${longitude})
         `;
 
+        console.log("Insert result:", result);
+
         res.status(201).json({
             success: true,
             data: {
@@ -109,13 +89,16 @@ router.post('/record', async (req, res) => {
                 status,
                 latitude,
                 longitude,
-                clockTime: new Date()
+                clockTime: new Date(),
+                location: locationCheck.location
             }
         });
     } catch (error) {
+        console.error("Error in /record endpoint:", error);
         res.status(400).json({
             success: false,
-            error: error.message
+            error: error.message,
+            details: error.stack
         });
     }
 });
