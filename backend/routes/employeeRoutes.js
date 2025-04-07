@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const Employee = require('../models/Employee');
+const { sql } = require('../config/db');
 
 // Register a new employee
 router.post('/register', async (req, res) => {
@@ -8,19 +8,23 @@ router.post('/register', async (req, res) => {
         const { employeeId, macAddress } = req.body;
         
         // Check if employee already exists
-        const existingEmployee = await Employee.findOne({ employeeId });
-        if (existingEmployee) {
+        const checkResult = await sql.query`
+            SELECT * FROM employee_app WHERE employeeId = ${employeeId}
+        `;
+        
+        if (checkResult.recordset.length > 0) {
             return res.status(400).json({ message: 'Employee already registered' });
         }
 
-        const employee = await Employee.create({
-            employeeId,
-            macAddress
-        });
+        // Insert new employee
+        const result = await sql.query`
+            INSERT INTO employee_app (employeeId, macAddress)
+            VALUES (${employeeId}, ${macAddress})
+        `;
 
         res.status(201).json({
             success: true,
-            data: employee
+            data: { employeeId, macAddress }
         });
     } catch (error) {
         res.status(400).json({
@@ -33,11 +37,11 @@ router.post('/register', async (req, res) => {
 // Get all employees
 router.get('/', async (req, res) => {
     try {
-        const employees = await Employee.find();
+        const result = await sql.query`SELECT * FROM employee_app`;
         res.status(200).json({
             success: true,
-            count: employees.length,
-            data: employees
+            count: result.recordset.length,
+            data: result.recordset
         });
     } catch (error) {
         res.status(400).json({
@@ -50,16 +54,20 @@ router.get('/', async (req, res) => {
 // Get a single employee by ID
 router.get('/:employeeId', async (req, res) => {
     try {
-        const employee = await Employee.findOne({ employeeId: req.params.employeeId });
-        if (!employee) {
+        const result = await sql.query`
+            SELECT * FROM employee_app WHERE employeeId = ${req.params.employeeId}
+        `;
+        
+        if (result.recordset.length === 0) {
             return res.status(404).json({
                 success: false,
                 message: 'Employee not found'
             });
         }
+
         res.status(200).json({
             success: true,
-            data: employee
+            data: result.recordset[0]
         });
     } catch (error) {
         res.status(400).json({

@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'dart:math';
+import 'attendance_page.dart';
 
 void main() {
   runApp(HokindaApp());
@@ -45,7 +49,105 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   bool showTextField = false;
+  bool isLoading = false;
+  String? errorMessage;
   final TextEditingController _controller = TextEditingController();
+
+  String _generateRandomMacAddress() {
+    final random = Random();
+    final macAddress = List.generate(6, (index) => random.nextInt(256))
+        .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
+        .join(':');
+    return macAddress.toUpperCase();
+  }
+
+  bool _isNumeric(String str) {
+    if (str.isEmpty) return false;
+    return int.tryParse(str) != null;
+  }
+
+  Future<void> _registerEmployee() async {
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
+
+    try {
+      // Validate employeeId is numeric
+      if (!_isNumeric(_controller.text)) {
+        throw Exception('Employee ID must contain only numbers');
+      }
+
+      // First check if employee exists
+      final checkResponse = await http.get(
+        Uri.parse('http://localhost:5000/api/employees/${_controller.text}'),
+      );
+
+      if (checkResponse.statusCode == 200) {
+        // Employee exists, show message and navigate to attendance page
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('User is registered already!'),
+              backgroundColor: Colors.blue,
+            ),
+          );
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AttendancePage(employeeId: _controller.text),
+            ),
+          );
+        }
+        return;
+      }
+
+      // Generate random MAC address
+      final macAddress = _generateRandomMacAddress();
+
+      // Make API call to register new employee
+      final response = await http.post(
+        Uri.parse('http://localhost:5000/api/employees/register'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'employeeId': _controller.text,
+          'macAddress': macAddress,
+        }),
+      );
+
+      if (response.statusCode == 201) {
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Registered Successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Navigate to attendance page
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AttendancePage(employeeId: _controller.text),
+            ),
+          );
+        }
+      } else {
+        final data = jsonDecode(response.body);
+        setState(() {
+          errorMessage = data['message'] ?? 'An error occurred';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        errorMessage = 'Error: ${e.toString()}';
+      });
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -129,14 +231,24 @@ class _HomePageState extends State<HomePage> {
                           SizedBox(width: 8),
                           Text(
                             'Registration',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: TextStyle(fontSize: 18),
                           ),
                         ],
                       ),
                     ),
+
+                    if (errorMessage != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: Text(
+                          errorMessage!,
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: 16,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
 
                     AnimatedSize(
                       duration: Duration(milliseconds: 300),
@@ -155,6 +267,9 @@ class _HomePageState extends State<HomePage> {
                                       prefixIcon: Icon(Icons.badge),
                                       hintText: "e.g., 12345678",
                                       helperText: "Please enter your 8-digit ID number",
+                                      errorText: _controller.text.isNotEmpty && !_isNumeric(_controller.text)
+                                          ? 'Employee ID must contain only numbers'
+                                          : null,
                                     ),
                                     onChanged: (value) {
                                       if (value.length > 8) {
@@ -163,13 +278,14 @@ class _HomePageState extends State<HomePage> {
                                           TextPosition(offset: _controller.text.length),
                                         );
                                       }
+                                      setState(() {}); // Trigger rebuild to update error text
                                     },
                                   ),
                                   SizedBox(height: 16),
                                   ElevatedButton(
-                                    onPressed: () {
-                                      // TODO: Handle registration submission
-                                    },
+                                    onPressed: (_controller.text.length == 8 && _isNumeric(_controller.text) && !isLoading)
+                                        ? _registerEmployee
+                                        : null,
                                     style: ElevatedButton.styleFrom(
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(12),
@@ -177,10 +293,12 @@ class _HomePageState extends State<HomePage> {
                                       padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
                                       backgroundColor: Colors.green,
                                     ),
-                                    child: Text(
-                                      'Submit',
-                                      style: TextStyle(fontSize: 16),
-                                    ),
+                                    child: isLoading
+                                        ? CircularProgressIndicator(color: Colors.white)
+                                        : Text(
+                                            'Submit',
+                                            style: TextStyle(fontSize: 16),
+                                          ),
                                   ),
                                 ],
                               ),
