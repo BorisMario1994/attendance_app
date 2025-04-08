@@ -80,7 +80,7 @@ class _HomePageState extends State<HomePage> {
 
       // First check if employee exists
       final checkResponse = await http.get(
-        Uri.parse('http://localhost:5000/api/employees/${_controller.text}'),
+        Uri.parse('http://192.168.100.236:5000/api/employees/${_controller.text}'),
       );
 
       if (checkResponse.statusCode == 200) {
@@ -107,7 +107,7 @@ class _HomePageState extends State<HomePage> {
 
       // Make API call to register new employee
       final response = await http.post(
-        Uri.parse('http://localhost:5000/api/employees/register'),
+        Uri.parse('http://192.168.100.236:5000/api/employees/register'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'employeeId': _controller.text,

@@ -43,7 +43,7 @@ class _AttendancePageState extends State<AttendancePage> {
   Future<void> _fetchServerTime() async {
     try {
       final response = await http.get(
-        Uri.parse('http://localhost:5000/api/attendance/server-time'),
+        Uri.parse('http://192.168.100.236:5000/api/attendance/server-time'),
       );
 
       if (response.statusCode == 200) {
@@ -90,7 +90,7 @@ class _AttendancePageState extends State<AttendancePage> {
 
       // Make API call
       final response = await http.post(
-        Uri.parse('http://localhost:5000/api/attendance/record'),
+        Uri.parse('http://192.168.100.236:5000/api/attendance/record'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'employeeId': widget.employeeId,
